@@ -2,6 +2,7 @@
 
 import json
 import logging
+
 try:
     from urllib import quote_plus
     from urlparse import urljoin
@@ -14,7 +15,7 @@ from bs4 import BeautifulSoup, SoupStrainer
 from . import settings as s
 from .lists import CATEGORIES, COLLECTIONS, AGE_RANGE
 from .utils import (build_url, build_collection_url, send_request,
-    generate_post_data, multi_app_request)
+                    generate_post_data, multi_app_request)
 
 
 class PlayScraper(object):
@@ -130,7 +131,7 @@ class PlayScraper(object):
         try:
             reviews = int(soup.select_one('meta[itemprop="ratingCount"]').attrs['content'])
             ratings_section = soup.select_one('div.rating-histogram')
-            ratings = [int(r.string.replace(',', '')) for r in ratings_section.select('span.bar-number')]
+            ratings = [int(r.string.replace(',', '').replace('.', '')) for r in ratings_section.select('span.bar-number')]
             for i in range(5):
                 histogram[5 - i] = ratings[i]
         except AttributeError:
@@ -292,8 +293,7 @@ class PlayScraper(object):
             response = send_request('GET', url)
             soup = BeautifulSoup(response.content, 'lxml')
         except requests.exceptions.HTTPError as e:
-            raise ValueError('Invalid application ID: {app}. {error}'.format(
-                app=app_id, error=e))
+            raise ValueError('Invalid application ID: {app}. {error}'.format(app=app_id, error=e))
 
         return self._parse_app_details(soup)
 

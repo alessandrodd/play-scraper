@@ -3,20 +3,22 @@
 BASE_URL = 'https://play.google.com/store/apps'
 SUGGESTION_URL = 'https://market.android.com/suggest/SuggRequest'
 SEARCH_URL = 'https://play.google.com/store/search'
+PAGE_LANGUAGE = 'en' # change to e.g. it to receive the italian version of the page
 
 CONCURRENT_REQUESTS = 10
-USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) '
-    'Chrome/45.0.2454.101 Safari/537.36')
+USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+              'AppleWebKit/537.36 (KHTML, like Gecko) '
+              'Chrome/42.0.2311.135 '
+              'Safari/537.36 Edge/12.246')
 
 # Number of results to retrieve from a collection. Range(1 - 120)
-NUM_RESULTS = 60
+NUM_RESULTS = 120
 
 # Number of results to retrieve from a developer
-DEV_RESULTS = 24
+DEV_RESULTS = 60
 
 # Number of results to retrieve from similar. Range (1 - 60)
-SIMILAR_RESULTS = 24
+SIMILAR_RESULTS = 60
 
 # pagTok post data strings to paginate through search results
 PAGE_TOKENS = {

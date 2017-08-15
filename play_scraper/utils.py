@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+
 try:
     from urllib import quote_plus
     from urlparse import urljoin
@@ -63,14 +64,14 @@ def build_url(method, id_string):
     or similar.
 
     :param method: the corresponding method to get for an id.
-    :param id: an id string query parameter.
+    :param id_string: an id string query parameter.
     :return: a URL string.
     """
     if method == 'developer':
         id_string = quote_plus(id_string)
 
-    url = "{base}/{method}?id={id}".format(
-        base=s.BASE_URL, method=method, id=id_string)
+    url = "{base}/{method}?id={id}&hl={lang}".format(
+        base=s.BASE_URL, method=method, id=id_string, lang=s.PAGE_LANGUAGE)
     return url
 
 
@@ -86,10 +87,11 @@ def build_collection_url(category='', collection=''):
     if collection:
         collection = "/collection/{col}".format(col=collection)
 
-    url = "{base}{category}{collection}".format(
+    url = "{base}{category}{collection}?hl={lang}".format(
         base=s.BASE_URL,
         category=category,
-        collection=collection)
+        collection=collection,
+        lang=s.PAGE_LANGUAGE)
 
     return url
 
@@ -100,6 +102,7 @@ def send_request(method, url, data=None, params=None, headers=None, verify=True)
     :param method: HTTP method to use.
     :param url: URL to send.
     :param data: Dictionary of post data to send.
+    :param params: Dictionary of params to send
     :param headers: Dictionary of headers to include.
     :param verify: a bool for requesting SSL verification.
     :return: a Response object.
