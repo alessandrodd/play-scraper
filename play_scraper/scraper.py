@@ -3,6 +3,8 @@
 import json
 import logging
 
+import html5_parser
+
 try:
     from urllib import quote_plus
     from urlparse import urljoin
@@ -10,7 +12,6 @@ except ImportError:
     from urllib.parse import urljoin, quote_plus
 
 import requests
-from bs4 import BeautifulSoup, SoupStrainer
 
 from . import settings as s
 from .lists import CATEGORIES, COLLECTIONS, AGE_RANGE
@@ -38,25 +39,25 @@ class PlayScraper(object):
         """
         app_id = soup.attrs['data-docid']
         url = urljoin(
-            self._base_url, soup.select_one('a.card-click-target').attrs['href'])
+            self._base_url, soup.find('a', class_='card-click-target').attrs['href'])
         icon = urljoin(
             self._base_url,
-            soup.select_one('img.cover-image').attrs['src'].split('=')[0])
-        title = soup.select_one('a.title').attrs['title']
+            soup.find('img', class_='cover-image').attrs['src'].split('=')[0])
+        title = soup.find('a', class_='title').attrs['title']
 
-        dev = soup.select_one('a.subtitle')
+        dev = soup.find('a', class_='subtitle')
         developer = dev.attrs['title']
         dev_id = dev.attrs['href'].split('=')[1]
         developer_id = dev_id if dev_id.isdigit() else None
 
-        description = soup.select_one('div.description').text.strip()
-        score = soup.select_one('div.tiny-star')
+        description = soup.find('div', class_='description').text.strip()
+        score = soup.find('div', class_='tiny-star')
         if score is not None:
             score = score.attrs['aria-label'].strip().split(' ')[1]
 
         # Most apps will have 'Free' or their price
         try:
-            price = soup.select_one('span.display-price').string
+            price = soup.find('span', class_='display-price').string
         except AttributeError:
             try:
                 # Pre-register apps 'Coming Soon'
@@ -90,19 +91,19 @@ class PlayScraper(object):
         """
         app_id = soup.select_one('div[data-uitype=209]').attrs['data-docid']
         url = build_url('details', app_id)
-        title = soup.select_one('div.id-app-title').string
+        title = soup.find("div", class_="id-app-title").string
         icon = urljoin(
             self._base_url,
-            soup.select_one('img.cover-image').attrs['src'].split('=')[0])
+            soup.find("img", class_="cover-image").attrs['src'].split('=')[0])
         screenshots = [urljoin(
             self._base_url,
-            img.attrs['src']) for img in soup.select('img.full-screenshot')]
+            img.attrs['src']) for img in soup.find("img", class_="full-screenshot")]
         thumbnails = [urljoin(
             self._base_url,
-            img.attrs['src']) for img in soup.select('img.screenshot')]
+            img.attrs['src']) for img in soup.find('img', class_='screenshot')]
 
         try:
-            video = soup.select_one('span.preview-overlay-container').attrs.get('data-video-url', None)
+            video = soup.find('span', class_='preview-overlay-container').attrs.get('data-video-url', None)
             if video is not None:
                 video = video.split('?')[0]
         except AttributeError:
@@ -112,7 +113,7 @@ class PlayScraper(object):
         # Main category will be first
         category = [c.attrs['href'].split('/')[-1] for c in soup.select('.category')]
 
-        description_soup = soup.select_one('div.show-more-content.text-body div')
+        description_soup = soup.find('div', class_='show-more-content text-body').find('div')
         if description_soup:
             description = "\n".join(description_soup.stripped_strings)
             description_html = description_soup.encode_contents().decode('utf-8')
@@ -130,29 +131,30 @@ class PlayScraper(object):
         histogram = {}
         try:
             reviews = int(soup.select_one('meta[itemprop="ratingCount"]').attrs['content'])
-            ratings_section = soup.select_one('div.rating-histogram')
-            ratings = [int(r.string.replace(',', '').replace('.', '')) for r in ratings_section.select('span.bar-number')]
+            ratings_section = soup.find('div', class_='rating-histogram')
+            ratings = [int(r.string.replace(',', '').replace('.', '')) for r in
+                       ratings_section.find_all('span', class_='bar-number')]
             for i in range(5):
                 histogram[5 - i] = ratings[i]
         except AttributeError:
             reviews = 0
             pass
 
-        recent_changes = "\n".join([x.string.strip() for x in soup.select('div.recent-change')])
+        recent_changes = "\n".join([x.string.strip() for x in soup.find_all('div', class_='recent-change')])
         top_developer = bool(soup.select_one('meta[itemprop="topDeveloperBadgeUrl"]'))
         editors_choice = bool(soup.select_one('meta[itemprop="editorsChoiceBadgeUrl"]'))
         try:
             price = soup.select_one('meta[itemprop="price"]').attrs['content']
         except AttributeError:
             try:
-                price = soup.select_one('div.preregistration-text-add').string.strip()
+                price = soup.find('div', class_='preregistration-text-add').string.strip()
             except AttributeError:
                 price = 'Not Available'
 
         free = (price == '0')
 
         # Additional information section
-        additional_info = soup.select_one('div.metadata div.details-section-contents')
+        additional_info = soup.find('div', class_='details-section metadata')
         updated = additional_info.select_one('div[itemprop="datePublished"]')
         if updated:
             updated = updated.string
@@ -191,7 +193,7 @@ class PlayScraper(object):
             interactive_elements = []
             pass
 
-        offers_iap = bool(soup.select_one('div.inapp-msg'))
+        offers_iap = bool(soup.find('div', class_='inapp-msg'))
         iap_range = None
         if offers_iap:
             try:
@@ -203,7 +205,7 @@ class PlayScraper(object):
 
         developer = soup.select_one('span[itemprop="name"]').string
 
-        dev_id = soup.select_one('a.document-subtitle.primary').attrs['href'].split('=')[1]
+        dev_id = soup.find('a', class_='document-subtitle primary').attrs['href'].split('=')[1]
         developer_id = dev_id if dev_id.isdigit() else None
 
         try:
@@ -259,18 +261,18 @@ class PlayScraper(object):
         :param list_response: the Response object from a list request
         :return: a list of app dictionaries
         """
-        list_strainer = SoupStrainer('span', {'class': 'preview-overlay-container'})
-        soup = BeautifulSoup(list_response.content, 'lxml', parse_only=list_strainer)
+        soup = html5_parser.parse(list_response.text, treebuilder='soup')
 
-        app_ids = [x.attrs['data-docid'] for x in soup.select('span.preview-overlay-container')]
+        app_ids = [x.attrs['data-docid'] for x in soup.find_all('span', class_='preview-overlay-container')]
         responses = multi_app_request(app_ids)
 
-        app_strainer = SoupStrainer('div', {'class': 'main-content'})
         apps = []
         errors = []
         for i, r in enumerate(responses):
             if r is not None and r.status_code == requests.codes.ok:
-                soup = BeautifulSoup(r.content, 'lxml', parse_only=app_strainer)
+                # soup = BeautifulSoup(r.text, 'lxml', parse_only=app_strainer)
+                soup = html5_parser.parse(r.text, treebuilder='soup')
+
                 apps.append(self._parse_app_details(soup))
             else:
                 errors.append(app_ids[i])
@@ -291,7 +293,7 @@ class PlayScraper(object):
 
         try:
             response = send_request('GET', url)
-            soup = BeautifulSoup(response.content, 'lxml')
+            soup = html5_parser.parse(response.text, treebuilder='soup')
         except requests.exceptions.HTTPError as e:
             raise ValueError('Invalid application ID: {app}. {error}'.format(app=app_id, error=e))
 
@@ -331,7 +333,7 @@ class PlayScraper(object):
         if detailed:
             apps = self._parse_multiple_apps(response)
         else:
-            soup = BeautifulSoup(response.content, 'lxml')
+            soup = html5_parser.parse(response.text, treebuilder='soup')
             apps = [self._parse_card_info(app) for app in soup.select('div[data-uitype=500]')]
 
         return apps
@@ -356,7 +358,7 @@ class PlayScraper(object):
         url = build_url('developer', developer)
         data = generate_post_data(results, 0, pagtok)
         response = send_request('POST', url, data)
-        soup = BeautifulSoup(response.content, 'lxml')
+        soup = html5_parser.parse(response.text, treebuilder='soup')
 
         if detailed:
             apps = self._parse_multiple_apps(response)
@@ -384,7 +386,7 @@ class PlayScraper(object):
         }
 
         response = send_request('GET', self._suggestion_url, params=params)
-        suggestions = [q['s'] for q in json.loads(response.content)]
+        suggestions = [q['s'] for q in json.loads(response.text)]
         return suggestions
 
     def search(self, query, page=None, detailed=False):
@@ -409,7 +411,7 @@ class PlayScraper(object):
         }
 
         response = send_request('POST', self._search_url, data, params)
-        soup = BeautifulSoup(response.content, 'lxml')
+        soup = html5_parser.parse(response.text, treebuilder='soup')
 
         if detailed:
             apps = self._parse_multiple_apps(response)
@@ -432,7 +434,7 @@ class PlayScraper(object):
         url = build_url('similar', app_id)
         data = generate_post_data(results)
         response = send_request('POST', url, data)
-        soup = BeautifulSoup(response.content, 'lxml')
+        soup = html5_parser.parse(response.text, treebuilder='soup')
 
         if detailed:
             apps = self._parse_multiple_apps(response)
